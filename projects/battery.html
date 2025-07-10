@@ -45,11 +45,50 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
+    // Color pairs: [FG, BG] from full to empty
+    const colorPairs = [
+      ["#EA6E4B", "#FAF26F"],
+      ["#FAF26F", "#ABE3D2"],
+      ["#ABE3D2", "#D653A9"],
+      ["#D653A9", "#3A1E66"]
+    ];
+
+    // Helper: hex to [r,g,b]
+    function hexToRgb(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+      const num = parseInt(hex, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
+    // Helper: interpolate two [r,g,b] arrays
+    function lerpColor(a, b, t) {
+      return [
+        Math.round(a[0] + (b[0] - a[0]) * t),
+        Math.round(a[1] + (b[1] - a[1]) * t),
+        Math.round(a[2] + (b[2] - a[2]) * t)
+      ];
+    }
+
+    // Get interpolated FG/BG colors for a given battery level (0..1)
+    function getColors(level) {
+      const n = colorPairs.length - 1;
+      const seg = 1 / n;
+      let idx = Math.floor((1 - level) / seg);
+      if (idx >= n) idx = n - 1;
+      const t = ((1 - level) - idx * seg) / seg;
+      const [fg1, bg1] = colorPairs[idx];
+      const [fg2, bg2] = colorPairs[idx + 1];
+      const fg = lerpColor(hexToRgb(fg1), hexToRgb(fg2), t);
+      const bg = lerpColor(hexToRgb(bg1), hexToRgb(bg2), t);
+      return { fg, bg };
+    }
+
     function drawBatteryViz(level) {
       const width = canvas.width;
       const height = canvas.height;
       const totalPixels = width * height;
       const blackPixels = Math.round(totalPixels * level);
+      const { fg, bg } = getColors(level);
 
       // Create an array of all pixel indices
       const indices = new Uint32Array(totalPixels);
@@ -62,22 +101,22 @@
       // Prepare image data
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
-      // Set black pixels
+      // Set FG pixels
       for (let n = 0; n < blackPixels; n++) {
         const idx = indices[n];
         const px = idx * 4;
-        data[px] = 0;     // R
-        data[px+1] = 0;   // G
-        data[px+2] = 0;   // B
-        data[px+3] = 255; // A
+        data[px] = fg[0];
+        data[px+1] = fg[1];
+        data[px+2] = fg[2];
+        data[px+3] = 255;
       }
-      // Set white pixels (optional, for clarity)
+      // Set BG pixels
       for (let n = blackPixels; n < totalPixels; n++) {
         const idx = indices[n];
         const px = idx * 4;
-        data[px] = 255;
-        data[px+1] = 255;
-        data[px+2] = 255;
+        data[px] = bg[0];
+        data[px+1] = bg[1];
+        data[px+2] = bg[2];
         data[px+3] = 255;
       }
       ctx.putImageData(imageData, 0, 0);
