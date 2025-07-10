@@ -149,7 +149,7 @@
       ctx.save();
       ctx.globalCompositeOperation = 'destination-in';
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+      ctx.arc(cx, cy, radius-5, 0, 2 * Math.PI);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
