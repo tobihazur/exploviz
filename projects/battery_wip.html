@@ -175,8 +175,8 @@
       // Clamp level between 0.01 and 1
       level = Math.max(0.01, Math.min(1, level));
       // Exponential interpolation: interval = min * (max/min)^(1-level)
-      const min = 100;      // ms at 100%
-      const max = 10000;   // ms at 1%
+      const min = 10;      // ms at 100%
+      const max = 2000;   // ms at 1%
       return Math.round(min * Math.pow(max / min, 1 - level));
     }
 
