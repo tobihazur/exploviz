@@ -2,22 +2,126 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Battery Level</title>
+  <title>Battery Level Visualization</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #fff;
+    }
+    #battery-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    #battery-level {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 1.2em;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+  </style>
 </head>
 <body>
-  <h1>Battery Level</h1>
-  <p id="battery-level">Checking...</p>
+  <div id="battery-level">Checking...</div>
+  <canvas id="battery-canvas"></canvas>
   <script>
-    navigator.getBattery().then(battery => {
-      const update = () => {
-        document.getElementById('battery-level').textContent =
-          `Battery level: ${Math.round(battery.level * 100)}%`;
-      };
-      update();
-      battery.addEventListener('levelchange', update);
-    }).catch(() => {
-      document.getElementById('battery-level').textContent = 'Battery API not supported.';
-    });
+    const canvas = document.getElementById('battery-canvas');
+    const ctx = canvas.getContext('2d');
+    const batteryLevelDisplay = document.getElementById('battery-level');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawBatteryViz(level) {
+      const width = canvas.width;
+      const height = canvas.height;
+      const totalPixels = width * height;
+      const blackPixels = Math.round(totalPixels * level);
+
+      // Create an array of all pixel indices
+      const indices = new Uint32Array(totalPixels);
+      for (let i = 0; i < totalPixels; i++) indices[i] = i;
+      // Shuffle the array (Fisher-Yates)
+      for (let i = totalPixels - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      // Prepare image data
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      // Set black pixels
+      for (let n = 0; n < blackPixels; n++) {
+        const idx = indices[n];
+        const px = idx * 4;
+        data[px] = 0;     // R
+        data[px+1] = 0;   // G
+        data[px+2] = 0;   // B
+        data[px+3] = 255; // A
+      }
+      // Set white pixels (optional, for clarity)
+      for (let n = blackPixels; n < totalPixels; n++) {
+        const idx = indices[n];
+        const px = idx * 4;
+        data[px] = 255;
+        data[px+1] = 255;
+        data[px+2] = 255;
+        data[px+3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    let batteryLevel = 1;
+    let timerId = null;
+
+    // Compute interval: 100% = 10ms, 1% = 10,000ms, exponential interpolation
+    function computeInterval(level) {
+      // Clamp level between 0.01 and 1
+      level = Math.max(0.01, Math.min(1, level));
+      // Exponential interpolation: interval = min * (max/min)^(1-level)
+      const min = 10;      // ms at 100%
+      const max = 10000;   // ms at 1%
+      return Math.round(min * Math.pow(max / min, 1 - level));
+    }
+
+    function drawAndSchedule() {
+      drawBatteryViz(batteryLevel);
+      const interval = computeInterval(batteryLevel);
+      timerId = setTimeout(drawAndSchedule, interval);
+    }
+
+    function startViz() {
+      if (timerId) clearTimeout(timerId);
+      drawAndSchedule();
+    }
+
+    function updateBatteryLevel(newLevel) {
+      batteryLevel = newLevel;
+      batteryLevelDisplay.textContent = `Battery level: ${Math.round(batteryLevel * 100)}%`;
+      startViz();
+    }
+
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        updateBatteryLevel(battery.level);
+        battery.addEventListener('levelchange', () => updateBatteryLevel(battery.level));
+        window.addEventListener('resize', () => drawBatteryViz(batteryLevel));
+      });
+    } else {
+      batteryLevelDisplay.textContent = 'Battery API not supported.';
+    }
   </script>
 </body>
 </html>
