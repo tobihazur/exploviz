@@ -150,12 +150,12 @@
     let batteryLevel = 1;
     let timerId = null;
 
-    // Compute interval: 100% = 10ms, 1% = 10,000ms, exponential interpolation
+    // Compute interval: 100% = 100ms, 1% = 10,000ms, exponential interpolation
     function computeInterval(level) {
       // Clamp level between 0.01 and 1
       level = Math.max(0.01, Math.min(1, level));
       // Exponential interpolation: interval = min * (max/min)^(1-level)
-      const min = 10;      // ms at 100%
+      const min = 100;      // ms at 100%
       const max = 10000;   // ms at 1%
       return Math.round(min * Math.pow(max / min, 1 - level));
     }
