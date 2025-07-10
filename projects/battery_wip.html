@@ -31,7 +31,8 @@
       canvas.height = window.innerHeight * dpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
-      // Remove ctx.setTransform and ctx.scale from here
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any transforms
+      ctx.scale(dpr, dpr); // Scale drawing operations to match
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
@@ -75,11 +76,8 @@
     }
 
     function drawBatteryViz(level) {
-      const dpr = window.devicePixelRatio || 1;
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-      ctx.scale(dpr, dpr); // Apply correct scale
-      const width = canvas.width / dpr;
-      const height = canvas.height / dpr;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
       // Compute min and max block size: min 1-10, max 10-100, both linear with (1-level)
       const minBlockSize = Math.round(1 + (10 - 1) * (1 - level));
       const maxBlockSize = Math.round(10 + (100 - 10) * (1 - level));
