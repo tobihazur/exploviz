@@ -86,8 +86,8 @@
     function drawBatteryViz(level) {
       const width = canvas.width;
       const height = canvas.height;
-      // Choose a random block size between 2 and 10 for each draw
-      const blockSize = Math.floor(Math.random() * 9) + 2; // 2..10
+      // Choose a random block size between 10 and 100 for each draw
+      const blockSize = Math.floor(Math.random() * 91) + 10; // 10..100
       const blocksX = Math.ceil(width / blockSize);
       const blocksY = Math.ceil(height / blockSize);
       const totalBlocks = blocksX * blocksY;
