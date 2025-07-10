@@ -24,8 +24,13 @@
     const ctx = canvas.getContext('2d');
 
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any transforms
+      ctx.scale(dpr, dpr); // Scale drawing operations to match
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
@@ -69,8 +74,8 @@
     }
 
     function drawBatteryViz(level) {
-      const width = canvas.width;
-      const height = canvas.height;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
       // Fill the entire canvas with white first
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, width, height);
