@@ -17,29 +17,15 @@
       width: 100vw;
       height: 100vh;
     }
-    #battery-level {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(255,255,255,0.8);
-      padding: 16px 32px;
-      border-radius: 16px;
-      font-size: 2em;
-      z-index: 10;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.15);
-      text-align: center;
-      pointer-events: none;
-    }
   </style>
+  <!-- Minecraft font from Google Fonts or CDN -->
+  <link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
 </head>
 <body>
-  <div id="battery-level">Checking...</div>
   <canvas id="battery-canvas"></canvas>
   <script>
     const canvas = document.getElementById('battery-canvas');
     const ctx = canvas.getContext('2d');
-    const batteryLevelDisplay = document.getElementById('battery-level');
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -143,6 +129,30 @@
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
       ctx.putImageData(imageData, 0, 0);
+
+      // Draw battery level text in the center using pixel font
+      const percentText = `${Math.round(level * 100)}%`;
+      // Use Minecraft font if available, else monospace
+      const fontSize = Math.floor(Math.min(width, height) / 5);
+      ctx.font = `bold ${fontSize}px 'Minecraft', 'monospace'`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Measure text
+      const textMetrics = ctx.measureText(percentText);
+      const textWidth = textMetrics.width;
+      const textHeight = fontSize; // Approximate
+      // Draw background rectangle for contrast
+      const rectPadding = fontSize * 0.3;
+      ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+      ctx.fillRect(
+        width / 2 - textWidth / 2 - rectPadding,
+        height / 2 - textHeight / 2 - rectPadding,
+        textWidth + rectPadding * 2,
+        textHeight + rectPadding * 2
+      );
+      // Draw text in foreground color
+      ctx.fillStyle = `rgb(${fg[0]},${fg[1]},${fg[2]})`;
+      ctx.fillText(percentText, width / 2, height / 2);
     }
 
     let batteryLevel = 1;
@@ -171,7 +181,6 @@
 
     function updateBatteryLevel(newLevel) {
       batteryLevel = newLevel;
-      batteryLevelDisplay.textContent = `${Math.round(batteryLevel * 100)}%`;
       startViz();
     }
 
@@ -181,8 +190,6 @@
         battery.addEventListener('levelchange', () => updateBatteryLevel(battery.level));
         window.addEventListener('resize', () => drawBatteryViz(batteryLevel));
       });
-    } else {
-      batteryLevelDisplay.textContent = 'Battery API not supported.';
     }
   </script>
 </body>
