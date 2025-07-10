@@ -17,26 +17,13 @@
       width: 100vw;
       height: 100vh;
     }
-    #battery-level {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255,255,255,0.8);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 1.2em;
-      z-index: 10;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
   </style>
 </head>
 <body>
-  <div id="battery-level">Checking...</div>
   <canvas id="battery-canvas"></canvas>
   <script>
     const canvas = document.getElementById('battery-canvas');
     const ctx = canvas.getContext('2d');
-    const batteryLevelDisplay = document.getElementById('battery-level');
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -168,7 +155,6 @@
 
     function updateBatteryLevel(newLevel) {
       batteryLevel = newLevel;
-      batteryLevelDisplay.textContent = `Battery level: ${Math.round(batteryLevel * 100)}%`;
       startViz();
     }
 
@@ -178,8 +164,6 @@
         battery.addEventListener('levelchange', () => updateBatteryLevel(battery.level));
         window.addEventListener('resize', () => drawBatteryViz(batteryLevel));
       });
-    } else {
-      batteryLevelDisplay.textContent = 'Battery API not supported.';
     }
   </script>
 </body>
