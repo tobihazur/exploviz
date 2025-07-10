@@ -129,30 +129,6 @@
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
       ctx.putImageData(imageData, 0, 0);
-
-      // Draw battery level text in the center using pixel font
-      const percentText = `${Math.round(level * 100)}%`;
-      // Use Minecraft font if available, else monospace
-      const fontSize = Math.floor(Math.min(width, height) / 20);
-      ctx.font = `bold ${fontSize}px 'Minecraft', 'monospace'`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // Measure text
-      const textMetrics = ctx.measureText(percentText);
-      const textWidth = textMetrics.width;
-      const textHeight = fontSize; // Approximate
-      // Draw background rectangle for contrast
-      const rectPadding = fontSize * 0.3;
-      ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
-      ctx.fillRect(
-        width / 2 - textWidth / 2 - rectPadding,
-        height / 2 - textHeight / 2 - rectPadding,
-        textWidth + rectPadding * 2,
-        textHeight + rectPadding * 2
-      );
-      // Draw text in foreground color
-      ctx.fillStyle = `rgb(${fg[0]},${fg[1]},${fg[2]})`;
-      ctx.fillText(percentText, width / 2, height / 2);
     }
 
     let batteryLevel = 1;
