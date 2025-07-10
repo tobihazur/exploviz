@@ -73,6 +73,9 @@
     function drawBatteryViz(level) {
       const width = canvas.width;
       const height = canvas.height;
+      // Fill the entire canvas with white first
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
       // Compute min and max block size: min 1-10, max 10-100, both linear with (1-level)
       const minBlockSize = Math.round(1 + (10 - 1) * (1 - level));
       const maxBlockSize = Math.round(10 + (100 - 10) * (1 - level));
@@ -128,12 +131,27 @@
       }
       ctx.putImageData(imageData, 0, 0);
 
-      // --- Feathered white overlay inside the circle ---
+      // --- Draw solid white mask outside the circle ---
       const cx = width / 2;
       const cy = height / 2;
       const radius = (Math.min(width, height) / 2) - 40;
+      // Draw solid white everywhere
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      // Cut out the circle
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // --- Feathered white overlay inside the circle ---
       const feather = 20;
-      // Draw the feathered white overlay inside the circle
       const grad = ctx.createRadialGradient(cx, cy, radius - feather, cx, cy, radius);
       grad.addColorStop(0, 'rgba(255,255,255,0)');
       grad.addColorStop(1, 'rgba(255,255,255,1)');
@@ -143,17 +161,6 @@
       ctx.closePath();
       ctx.fillStyle = grad;
       ctx.fill();
-      ctx.restore();
-
-      // Draw solid white outside the circle
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-over';
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-      ctx.closePath();
-      ctx.rect(0, 0, width, height);
-      ctx.fillStyle = '#fff';
-      ctx.fill('evenodd');
       ctx.restore();
     }
 
