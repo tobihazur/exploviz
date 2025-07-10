@@ -89,9 +89,6 @@
       const fgBlocks = Math.round(totalBlocks * level);
       const { fg, bg } = getColors(level);
 
-      // Clear the canvas
-      ctx.clearRect(0, 0, width, height);
-
       // Create an array of all block indices
       const indices = new Uint32Array(totalBlocks);
       for (let i = 0; i < totalBlocks; i++) indices[i] = i;
@@ -100,41 +97,22 @@
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
-      // Helper to fill a block as a rounded rect or circle
+      // Prepare image data
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      // Helper to fill a block in imageData
       function fillBlock(x, y, color) {
-        // Calculate border radius: 0 (square) at 100%, blockSize/2 (circle) at 0%
-        const radius = (1 - level) * (blockSize / 2);
-        ctx.save();
-        ctx.beginPath();
-        if (radius > 0.5) {
-          // Draw rounded rect (or circle if radius == blockSize/2)
-          if (ctx.roundRect) {
-            ctx.roundRect(x, y, blockSize, blockSize, radius);
-          } else {
-            // Fallback for browsers without roundRect: draw circle if radius is large
-            if (radius >= blockSize / 2 - 0.5) {
-              ctx.arc(x + blockSize / 2, y + blockSize / 2, blockSize / 2, 0, 2 * Math.PI);
-            } else {
-              // Approximate rounded rect
-              ctx.moveTo(x + radius, y);
-              ctx.lineTo(x + blockSize - radius, y);
-              ctx.quadraticCurveTo(x + blockSize, y, x + blockSize, y + radius);
-              ctx.lineTo(x + blockSize, y + blockSize - radius);
-              ctx.quadraticCurveTo(x + blockSize, y + blockSize, x + blockSize - radius, y + blockSize);
-              ctx.lineTo(x + radius, y + blockSize);
-              ctx.quadraticCurveTo(x, y + blockSize, x, y + blockSize - radius);
-              ctx.lineTo(x, y + radius);
-              ctx.quadraticCurveTo(x, y, x + radius, y);
-            }
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const px = (x + dx) + (y + dy) * width;
+            if (px >= width * height) continue;
+            const i = px * 4;
+            data[i] = color[0];
+            data[i+1] = color[1];
+            data[i+2] = color[2];
+            data[i+3] = 255;
           }
-        } else {
-          // Perfect square
-          ctx.rect(x, y, blockSize, blockSize);
         }
-        ctx.closePath();
-        ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-        ctx.fill();
-        ctx.restore();
       }
       // Set FG blocks
       for (let n = 0; n < fgBlocks; n++) {
@@ -150,6 +128,7 @@
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
+      ctx.putImageData(imageData, 0, 0);
     }
 
     let batteryLevel = 1;
