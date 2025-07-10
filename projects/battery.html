@@ -89,6 +89,9 @@
       const fgBlocks = Math.round(totalBlocks * level);
       const { fg, bg } = getColors(level);
 
+      // Clear the canvas
+      ctx.clearRect(0, 0, width, height);
+
       // Create an array of all block indices
       const indices = new Uint32Array(totalBlocks);
       for (let i = 0; i < totalBlocks; i++) indices[i] = i;
@@ -97,10 +100,7 @@
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
-      // Prepare image data
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      // Helper to fill a block in imageData
+      // Helper to fill a block as a rounded rect or circle
       function fillBlock(x, y, color) {
         // Calculate border radius: 0 (square) at 100%, blockSize/2 (circle) at 0%
         const radius = (1 - level) * (blockSize / 2);
@@ -136,7 +136,6 @@
         ctx.fill();
         ctx.restore();
       }
-
       // Set FG blocks
       for (let n = 0; n < fgBlocks; n++) {
         const idx = indices[n];
@@ -151,7 +150,6 @@
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
-      ctx.putImageData(imageData, 0, 0);
     }
 
     let batteryLevel = 1;
