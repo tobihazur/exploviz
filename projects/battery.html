@@ -76,10 +76,8 @@
       // Compute min and max block size: min 1-10, max 10-100, both linear with (1-level)
       const minBlockSize = Math.round(1 + (10 - 1) * (1 - level));
       const maxBlockSize = Math.round(10 + (100 - 10) * (1 - level));
-      // Ensure minBlockSize <= maxBlockSize
       const minSize = Math.min(minBlockSize, maxBlockSize);
       const maxSize = Math.max(minBlockSize, maxBlockSize);
-      // Choose a random block size between min and max for each draw
       const blockSize = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
       const blocksX = Math.ceil(width / blockSize);
       const blocksY = Math.ceil(height / blockSize);
@@ -87,46 +85,89 @@
       const fgBlocks = Math.round(totalBlocks * level);
       const { fg, bg } = getColors(level);
 
-      // Create an array of all block indices
+      // Clear the canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw the viz as usual
       const indices = new Uint32Array(totalBlocks);
       for (let i = 0; i < totalBlocks; i++) indices[i] = i;
-      // Shuffle the array (Fisher-Yates)
       for (let i = totalBlocks - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
-      // Prepare image data
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      // Helper to fill a block in imageData
       function fillBlock(x, y, color) {
-        for (let dy = 0; dy < blockSize; dy++) {
-          for (let dx = 0; dx < blockSize; dx++) {
-            const px = (x + dx) + (y + dy) * width;
-            if (px >= width * height) continue;
-            const i = px * 4;
-            data[i] = color[0];
-            data[i+1] = color[1];
-            data[i+2] = color[2];
-            data[i+3] = 255;
+        const radius = (1 - level) * (blockSize / 2);
+        ctx.save();
+        ctx.beginPath();
+        if (radius > 0.5) {
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, blockSize, blockSize, radius);
+          } else {
+            if (radius >= blockSize / 2 - 0.5) {
+              ctx.arc(x + blockSize / 2, y + blockSize / 2, blockSize / 2, 0, 2 * Math.PI);
+            } else {
+              ctx.moveTo(x + radius, y);
+              ctx.lineTo(x + blockSize - radius, y);
+              ctx.quadraticCurveTo(x + blockSize, y, x + blockSize, y + radius);
+              ctx.lineTo(x + blockSize, y + blockSize - radius);
+              ctx.quadraticCurveTo(x + blockSize, y + blockSize, x + blockSize - radius, y + blockSize);
+              ctx.lineTo(x + radius, y + blockSize);
+              ctx.quadraticCurveTo(x, y + blockSize, x, y + blockSize - radius);
+              ctx.lineTo(x, y + radius);
+              ctx.quadraticCurveTo(x, y, x + radius, y);
+            }
           }
+        } else {
+          ctx.rect(x, y, blockSize, blockSize);
         }
+        ctx.closePath();
+        ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+        ctx.fill();
+        ctx.restore();
       }
-      // Set FG blocks
       for (let n = 0; n < fgBlocks; n++) {
         const idx = indices[n];
         const bx = idx % blocksX;
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, fg);
       }
-      // Set BG blocks
       for (let n = fgBlocks; n < totalBlocks; n++) {
         const idx = indices[n];
         const bx = idx % blocksX;
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
-      ctx.putImageData(imageData, 0, 0);
+
+      // --- Draw the circular mask with feathered edge ---
+      // Calculate circle radius and feather width
+      const minPadding = 40;
+      const maxCircleRadius = (Math.min(width, height) / 2) - minPadding;
+      const minCircleRadius = maxCircleRadius * 0.5;
+      const circleRadius = minCircleRadius + (maxCircleRadius - minCircleRadius) * level;
+      const minFeather = 10;
+      const maxFeather = 150;
+      const feather = minFeather + (maxFeather - minFeather) * (1 - level);
+      // Create a radial gradient for alpha
+      const cx = width / 2;
+      const cy = height / 2;
+      const grad = ctx.createRadialGradient(cx, cy, circleRadius, cx, cy, circleRadius + feather);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, 'rgba(255,255,255,1)');
+      // Draw white everywhere
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      ctx.arc(cx, cy, circleRadius + feather, 0, 2 * Math.PI);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+      // Fill outside the circle with white
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
     }
 
     let batteryLevel = 1;
