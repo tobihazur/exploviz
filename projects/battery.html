@@ -86,38 +86,52 @@
     function drawBatteryViz(level) {
       const width = canvas.width;
       const height = canvas.height;
-      const totalPixels = width * height;
-      const blackPixels = Math.round(totalPixels * level);
+      // Choose a random block size between 2 and 10 for each draw
+      const blockSize = Math.floor(Math.random() * 9) + 2; // 2..10
+      const blocksX = Math.ceil(width / blockSize);
+      const blocksY = Math.ceil(height / blockSize);
+      const totalBlocks = blocksX * blocksY;
+      const fgBlocks = Math.round(totalBlocks * level);
       const { fg, bg } = getColors(level);
 
-      // Create an array of all pixel indices
-      const indices = new Uint32Array(totalPixels);
-      for (let i = 0; i < totalPixels; i++) indices[i] = i;
+      // Create an array of all block indices
+      const indices = new Uint32Array(totalBlocks);
+      for (let i = 0; i < totalBlocks; i++) indices[i] = i;
       // Shuffle the array (Fisher-Yates)
-      for (let i = totalPixels - 1; i > 0; i--) {
+      for (let i = totalBlocks - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
       // Prepare image data
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
-      // Set FG pixels
-      for (let n = 0; n < blackPixels; n++) {
-        const idx = indices[n];
-        const px = idx * 4;
-        data[px] = fg[0];
-        data[px+1] = fg[1];
-        data[px+2] = fg[2];
-        data[px+3] = 255;
+      // Helper to fill a block in imageData
+      function fillBlock(x, y, color) {
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const px = (x + dx) + (y + dy) * width;
+            if (px >= width * height) continue;
+            const i = px * 4;
+            data[i] = color[0];
+            data[i+1] = color[1];
+            data[i+2] = color[2];
+            data[i+3] = 255;
+          }
+        }
       }
-      // Set BG pixels
-      for (let n = blackPixels; n < totalPixels; n++) {
+      // Set FG blocks
+      for (let n = 0; n < fgBlocks; n++) {
         const idx = indices[n];
-        const px = idx * 4;
-        data[px] = bg[0];
-        data[px+1] = bg[1];
-        data[px+2] = bg[2];
-        data[px+3] = 255;
+        const bx = idx % blocksX;
+        const by = Math.floor(idx / blocksX);
+        fillBlock(bx * blockSize, by * blockSize, fg);
+      }
+      // Set BG blocks
+      for (let n = fgBlocks; n < totalBlocks; n++) {
+        const idx = indices[n];
+        const bx = idx % blocksX;
+        const by = Math.floor(idx / blocksX);
+        fillBlock(bx * blockSize, by * blockSize, bg);
       }
       ctx.putImageData(imageData, 0, 0);
     }
