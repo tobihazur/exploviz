@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Battery Level</title>
+</head>
+<body>
+  <h1>Battery Level</h1>
+  <p id="battery-level">Checking...</p>
+  <script>
+    navigator.getBattery().then(battery => {
+      const update = () => {
+        document.getElementById('battery-level').textContent =
+          `Battery level: ${Math.round(battery.level * 100)}%`;
+      };
+      update();
+      battery.addEventListener('levelchange', update);
+    }).catch(() => {
+      document.getElementById('battery-level').textContent = 'Battery API not supported.';
+    });
+  </script>
+</body>
+</html>

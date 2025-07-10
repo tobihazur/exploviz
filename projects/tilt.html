@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tilt Demo</title>
+  <style>
+    #tilt-box {
+      width: 100px; height: 100px; background: coral;
+      margin: 50px auto; transition: transform 0.1s;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tilt Sensor</h1>
+  <div id="tilt-box"></div>
+  <script>
+    window.addEventListener('deviceorientation', event => {
+      const { beta, gamma } = event;
+      document.getElementById('tilt-box').style.transform =
+        `rotateX(${beta}deg) rotateY(${gamma}deg)`;
+    });
+  </script>
+</body>
+</html>
