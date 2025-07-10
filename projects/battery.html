@@ -69,18 +69,16 @@
       ];
     }
 
-    // Get interpolated FG/BG colors for a given battery level (0..1)
+    // Get FG/BG colors for a given battery level (0..1) using only the 4 pre-defined pairs
     function getColors(level) {
-      const n = colorPairs.length - 1;
-      const seg = 1 / n;
-      let idx = Math.floor((1 - level) / seg);
-      if (idx >= n) idx = n - 1;
-      const t = ((1 - level) - idx * seg) / seg;
-      const [fg1, bg1] = colorPairs[idx];
-      const [fg2, bg2] = colorPairs[idx + 1];
-      const fg = lerpColor(hexToRgb(fg1), hexToRgb(fg2), t);
-      const bg = lerpColor(hexToRgb(bg1), hexToRgb(bg2), t);
-      return { fg, bg };
+      // 0..1: 0-0.25, 0.25-0.5, 0.5-0.75, 0.75-1
+      let idx;
+      if (level >= 0.75) idx = 0;
+      else if (level >= 0.5) idx = 1;
+      else if (level >= 0.25) idx = 2;
+      else idx = 3;
+      const [fg, bg] = colorPairs[idx];
+      return { fg: hexToRgb(fg), bg: hexToRgb(bg) };
     }
 
     function drawBatteryViz(level) {
