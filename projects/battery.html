@@ -142,8 +142,6 @@
       const min = 10;      // ms at 100%
       const max = 10000;   // ms at 1%
       let interval = Math.round(min * Math.pow(max / min, 1 - level));
-      // Add a minimum interval to avoid flicker
-      interval = Math.max(interval, 30); // 30ms minimum
       return interval;
     }
 
