@@ -38,9 +38,20 @@
     const ctx = canvas.getContext('2d');
     const batteryLevelDisplay = document.getElementById('battery-level');
 
+    // Offscreen canvas for cross-fade
+    const offscreen = document.createElement('canvas');
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    let prevFrame = null;
+    let fadeAlpha = 0;
+    let fadeDuration = 100; // ms
+    let fadeStart = null;
+
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      offscreen.width = canvas.width;
+      offscreen.height = canvas.height;
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
@@ -83,16 +94,14 @@
       return { fg, bg };
     }
 
-    function drawBatteryViz(level) {
+    function drawBatteryViz(level, doFade = true) {
       const width = canvas.width;
       const height = canvas.height;
       // Compute min and max block size: min 1-10, max 10-100, both linear with (1-level)
       const minBlockSize = Math.round(1 + (10 - 1) * (1 - level));
       const maxBlockSize = Math.round(10 + (100 - 10) * (1 - level));
-      // Ensure minBlockSize <= maxBlockSize
       const minSize = Math.min(minBlockSize, maxBlockSize);
       const maxSize = Math.max(minBlockSize, maxBlockSize);
-      // Choose a random block size between min and max for each draw
       const blockSize = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
       const blocksX = Math.ceil(width / blockSize);
       const blocksY = Math.ceil(height / blockSize);
@@ -100,46 +109,83 @@
       const fgBlocks = Math.round(totalBlocks * level);
       const { fg, bg } = getColors(level);
 
+      // Save current frame to offscreen before drawing new frame
+      if (doFade) {
+        offscreen.getContext('2d').drawImage(canvas, 0, 0);
+        prevFrame = true;
+        fadeAlpha = 1;
+        fadeStart = performance.now();
+      }
+
+      // Clear the canvas
+      ctx.clearRect(0, 0, width, height);
+
       // Create an array of all block indices
       const indices = new Uint32Array(totalBlocks);
       for (let i = 0; i < totalBlocks; i++) indices[i] = i;
-      // Shuffle the array (Fisher-Yates)
       for (let i = totalBlocks - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
-      // Prepare image data
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      // Helper to fill a block in imageData
       function fillBlock(x, y, color) {
-        for (let dy = 0; dy < blockSize; dy++) {
-          for (let dx = 0; dx < blockSize; dx++) {
-            const px = (x + dx) + (y + dy) * width;
-            if (px >= width * height) continue;
-            const i = px * 4;
-            data[i] = color[0];
-            data[i+1] = color[1];
-            data[i+2] = color[2];
-            data[i+3] = 255;
+        const radius = (1 - level) * (blockSize / 2);
+        ctx.save();
+        ctx.beginPath();
+        if (radius > 0.5) {
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, blockSize, blockSize, radius);
+          } else {
+            if (radius >= blockSize / 2 - 0.5) {
+              ctx.arc(x + blockSize / 2, y + blockSize / 2, blockSize / 2, 0, 2 * Math.PI);
+            } else {
+              ctx.moveTo(x + radius, y);
+              ctx.lineTo(x + blockSize - radius, y);
+              ctx.quadraticCurveTo(x + blockSize, y, x + blockSize, y + radius);
+              ctx.lineTo(x + blockSize, y + blockSize - radius);
+              ctx.quadraticCurveTo(x + blockSize, y + blockSize, x + blockSize - radius, y + blockSize);
+              ctx.lineTo(x + radius, y + blockSize);
+              ctx.quadraticCurveTo(x, y + blockSize, x, y + blockSize - radius);
+              ctx.lineTo(x, y + radius);
+              ctx.quadraticCurveTo(x, y, x + radius, y);
+            }
           }
+        } else {
+          ctx.rect(x, y, blockSize, blockSize);
         }
+        ctx.closePath();
+        ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+        ctx.fill();
+        ctx.restore();
       }
-      // Set FG blocks
       for (let n = 0; n < fgBlocks; n++) {
         const idx = indices[n];
         const bx = idx % blocksX;
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, fg);
       }
-      // Set BG blocks
       for (let n = fgBlocks; n < totalBlocks; n++) {
         const idx = indices[n];
         const bx = idx % blocksX;
         const by = Math.floor(idx / blocksX);
         fillBlock(bx * blockSize, by * blockSize, bg);
       }
-      ctx.putImageData(imageData, 0, 0);
+    }
+
+    function fadeStep() {
+      if (!prevFrame) return;
+      const now = performance.now();
+      const elapsed = now - fadeStart;
+      fadeAlpha = 1 - Math.min(elapsed / fadeDuration, 1);
+      if (fadeAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha;
+        ctx.drawImage(offscreen, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        requestAnimationFrame(fadeStep);
+      } else {
+        prevFrame = null;
+      }
     }
 
     let batteryLevel = 1;
@@ -156,7 +202,8 @@
     }
 
     function drawAndSchedule() {
-      drawBatteryViz(batteryLevel);
+      drawBatteryViz(batteryLevel, true);
+      fadeStep();
       const interval = computeInterval(batteryLevel);
       timerId = setTimeout(drawAndSchedule, interval);
     }
