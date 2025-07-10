@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BLV</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #fff;
+    }
+    #battery-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="battery-canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('battery-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Color pairs: [FG, BG] from full to empty
+    const colorPairs = [
+      ["#EA6E4B", "#FAF26F"],
+      ["#FAF26F", "#ABE3D2"],
+      ["#ABE3D2", "#D653A9"],
+      ["#D653A9", "#3A1E66"]
+    ];
+
+    // Helper: hex to [r,g,b]
+    function hexToRgb(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+      const num = parseInt(hex, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
+    // Helper: interpolate two [r,g,b] arrays
+    function lerpColor(a, b, t) {
+      return [
+        Math.round(a[0] + (b[0] - a[0]) * t),
+        Math.round(a[1] + (b[1] - a[1]) * t),
+        Math.round(a[2] + (b[2] - a[2]) * t)
+      ];
+    }
+
+    // Get interpolated FG/BG colors for a given battery level (0..1)
+    function getColors(level) {
+      const n = colorPairs.length - 1;
+      const seg = 1 / n;
+      let idx = Math.floor((1 - level) / seg);
+      if (idx >= n) idx = n - 1;
+      const t = ((1 - level) - idx * seg) / seg;
+      const [fg1, bg1] = colorPairs[idx];
+      const [fg2, bg2] = colorPairs[idx + 1];
+      const fg = lerpColor(hexToRgb(fg1), hexToRgb(fg2), t);
+      const bg = lerpColor(hexToRgb(bg1), hexToRgb(bg2), t);
+      return { fg, bg };
+    }
+
+    function drawBatteryViz(level) {
+      const width = canvas.width;
+      const height = canvas.height;
+      // Compute min and max block size: min 1-10, max 10-100, both linear with (1-level)
+      const minBlockSize = Math.round(1 + (10 - 1) * (1 - level));
+      const maxBlockSize = Math.round(10 + (100 - 10) * (1 - level));
+      // Ensure minBlockSize <= maxBlockSize
+      const minSize = Math.min(minBlockSize, maxBlockSize);
+      const maxSize = Math.max(minBlockSize, maxBlockSize);
+      // Choose a random block size between min and max for each draw
+      const blockSize = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+      const blocksX = Math.ceil(width / blockSize);
+      const blocksY = Math.ceil(height / blockSize);
+      const totalBlocks = blocksX * blocksY;
+      const fgBlocks = Math.round(totalBlocks * level);
+      const { fg, bg } = getColors(level);
+
+      // Create an array of all block indices
+      const indices = new Uint32Array(totalBlocks);
+      for (let i = 0; i < totalBlocks; i++) indices[i] = i;
+      // Shuffle the array (Fisher-Yates)
+      for (let i = totalBlocks - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      // Prepare image data
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      // Helper to fill a block in imageData
+      function fillBlock(x, y, color) {
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const px = (x + dx) + (y + dy) * width;
+            if (px >= width * height) continue;
+            const i = px * 4;
+            data[i] = color[0];
+            data[i+1] = color[1];
+            data[i+2] = color[2];
+            data[i+3] = 255;
+          }
+        }
+      }
+      // Set FG blocks
+      for (let n = 0; n < fgBlocks; n++) {
+        const idx = indices[n];
+        const bx = idx % blocksX;
+        const by = Math.floor(idx / blocksX);
+        fillBlock(bx * blockSize, by * blockSize, fg);
+      }
+      // Set BG blocks
+      for (let n = fgBlocks; n < totalBlocks; n++) {
+        const idx = indices[n];
+        const bx = idx % blocksX;
+        const by = Math.floor(idx / blocksX);
+        fillBlock(bx * blockSize, by * blockSize, bg);
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      // --- Draw white overlay with circular cutout ---
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = (Math.min(width, height) / 2) - 40;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.restore();
+      // Draw white over everything else
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+
+    let batteryLevel = 1;
+    let timerId = null;
+
+    // Compute interval: 100% = 10ms, 1% = 10,000ms, exponential interpolation
+    function computeInterval(level) {
+      // Clamp level between 0.01 and 1
+      level = Math.max(0.01, Math.min(1, level));
+      // Exponential interpolation: interval = min * (max/min)^(1-level)
+      const min = 10;      // ms at 100%
+      const max = 10000;   // ms at 1%
+      return Math.round(min * Math.pow(max / min, 1 - level));
+    }
+
+    function drawAndSchedule() {
+      drawBatteryViz(batteryLevel);
+      const interval = computeInterval(batteryLevel);
+      timerId = setTimeout(drawAndSchedule, interval);
+    }
+
+    function startViz() {
+      if (timerId) clearTimeout(timerId);
+      drawAndSchedule();
+    }
+
+    function updateBatteryLevel(newLevel) {
+      batteryLevel = newLevel;
+      startViz();
+    }
+
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        updateBatteryLevel(battery.level);
+        battery.addEventListener('levelchange', () => updateBatteryLevel(battery.level));
+        window.addEventListener('resize', () => drawBatteryViz(batteryLevel));
+      });
+    }
+  </script>
+</body>
+</html>
