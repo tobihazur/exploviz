@@ -133,7 +133,7 @@
       // Draw battery level text in the center using pixel font
       const percentText = `${Math.round(level * 100)}%`;
       // Use Minecraft font if available, else monospace
-      const fontSize = Math.floor(Math.min(width, height) / 5);
+      const fontSize = Math.floor(Math.min(width, height) / 20);
       ctx.font = `bold ${fontSize}px 'Minecraft', 'monospace'`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
